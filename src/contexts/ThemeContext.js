@@ -11,19 +11,18 @@ const defaultTheme = {
     forecastCardBackground: '#88C273',
     billingCardBackground: '#88C273',
     notificationsCardBackground: '#88C273',
-    AnalyticsCardBackground:'#7AB2D3',
+    analyticsCardBackground: '#7AB2D3',
     balanceCardBackground: '#71C9CE',
     ownerCardBackground: '#B59F78',
     apartmentCardBackground: '#D8DBBD',
     cardText: '#000000',
     buttonBackground: '#3b82f6',
-    AnalyticsCardText:'#ffffff',
-    buttonText: '#ffffff',
+    analyticsButtonBackground: '#3B82F6',
+    analyticsButtonText: '#FFFFFF',
     footerBackground: '#DBE2EF',
     footerText: '#000000',
-    analyticsCardBackground: '#FFFFFF',
-    analyticsButtonBackground: '#3B82F6',
-    analyticsButtonText: '#FFFFFF'
+    chartPrimaryColor: 'rgb(75, 192, 192)',
+    chartSecondaryColor: 'rgb(255, 99, 132)'
 };
 
 export const ThemeProvider = ({ children }) => {

@@ -1,11 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useTheme } from './contexts/ThemeContext';
 import ThemeSwitcher from './components/ThemeSwitcher';
+import WalletConnect from './components/WalletConnect';
+import { forecastService } from './services/forecastService';
 
 const Dashboard = () => {
-    const { theme, setTheme } = useTheme();
+    const navigate = useNavigate();
+    const { theme } = useTheme();
+    const [latestPrediction, setLatestPrediction] = useState(null);
     const [showThemeForm, setShowThemeForm] = useState(false);
+    const [walletBalance, setWalletBalance] = useState('0');
 
     const cardClass = `p-4 rounded-lg shadow`;
     const buttonClass = `p-2 rounded`;
@@ -18,6 +23,32 @@ const Dashboard = () => {
 
     const onNavigateToAnalytics = () => {
         window.location.href = '/analytics';
+    };
+
+    const handleBalanceChange = (balance) => {
+        setWalletBalance(balance);
+    };
+
+    useEffect(() => {
+        const fetchLatestPrediction = async () => {
+            try {
+                const data = await forecastService.getPrediction(1, 1, 2);
+                if (data && data.predictions) {
+                    setLatestPrediction({
+                        nextDay: data.predictions.values[0],
+                        trend: data.predictions.values[0] > data.predictions.values[1] ? 'up' : 'down'
+                    });
+                }
+            } catch (error) {
+                console.error('Error fetching prediction:', error);
+            }
+        };
+
+        fetchLatestPrediction();
+    }, []);
+
+    const handleForecastClick = () => {
+        navigate('/forecast');
     };
 
     return (
@@ -63,11 +94,48 @@ const Dashboard = () => {
                     <p className="text-2xl">5</p>
                     <p className={textClass}>+4.8%</p>
                 </div>
-                <div className={cardClass} style={{ backgroundColor: theme.forecastCardBackground, color: theme.cardText }}>
-                    <h2 className="text-lg font-semibold">Forecast & Analytics</h2>
-                    <p className="text-2xl">4</p>
-                    <p className={textClass}>+2.3%</p>
-                </div>
+                <Link 
+                    to="/forecast" 
+                    className={`${cardClass} cursor-pointer transition-transform hover:scale-105`}
+                    style={{ backgroundColor: theme.forecastCardBackground, color: theme.cardText }}
+                >
+                    <div className="flex flex-col items-center">
+                        <h2 className="text-lg font-semibold">Forecast & Analytics</h2>
+                        <div className="text-center mt-2">
+                            <p className="text-2xl font-bold">7 Days</p>
+                            {latestPrediction && (
+                                <div className="mt-2">
+                                    <p className="text-sm">Next Day Prediction:</p>
+                                    <p className={`${textClass} font-bold flex items-center justify-center`}>
+                                        {latestPrediction.nextDay.toFixed(1)}L
+                                        {latestPrediction.trend === 'up' ? (
+                                            <span className="text-green-500 ml-2">↑</span>
+                                        ) : (
+                                            <span className="text-red-500 ml-2">↓</span>
+                                        )}
+                                    </p>
+                                </div>
+                            )}
+                            <p className={`${textClass} mt-1`}>View Predictions</p>
+                        </div>
+                        <div className="mt-2">
+                            <svg 
+                                xmlns="http://www.w3.org/2000/svg" 
+                                className="h-6 w-6" 
+                                fill="none" 
+                                viewBox="0 0 24 24" 
+                                stroke="currentColor"
+                            >
+                                <path 
+                                    strokeLinecap="round" 
+                                    strokeLinejoin="round" 
+                                    strokeWidth={2} 
+                                    d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" 
+                                />
+                            </svg>
+                        </div>
+                    </div>
+                </Link>
                 <div className={cardClass} style={{ backgroundColor: theme.billingCardBackground, color: theme.cardText }}>
                     <h2 className="text-lg font-semibold">Billing and Payments</h2>
                     <p className="text-2xl">6</p>
@@ -80,8 +148,13 @@ const Dashboard = () => {
                 </div>
             </div>
             <div className={`${cardClass} mb-6`} style={{ backgroundColor: theme.balanceCardBackground, color: theme.cardText }}>
-                <h2 className="text-lg font-semibold">Balance</h2>
-                <p className="text-2xl">10241.98</p>
+                <div className="flex justify-between items-center">
+                    <div>
+                        <h2 className="text-lg font-semibold">Balance</h2>
+                        <p className="text-2xl">{Number(walletBalance).toFixed(4)} ETH</p>
+                    </div>
+                    <WalletConnect onBalanceChange={handleBalanceChange} />
+                </div>
             </div>
 
             
