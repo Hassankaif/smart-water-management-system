@@ -4,6 +4,12 @@ import { useTheme } from './contexts/ThemeContext';
 import ThemeSwitcher from './components/ThemeSwitcher';
 import WalletConnect from './components/WalletConnect';
 import { forecastService } from './services/forecastService';
+import { ethers } from 'ethers';
+import UserManagementABI from './abis/UserManagement.json';
+import { verifyConnections } from './utils/startupCheck';
+import WaterTokenAllocation from './components/WaterTokenAllocation'; // Import the new component
+
+const CONTRACT_ADDRESS = '0x14f713b4cb00eFD22746b7964b41606f638E5919'; // change if deployed again
 
 const Dashboard = () => {
     const navigate = useNavigate();
@@ -11,6 +17,9 @@ const Dashboard = () => {
     const [latestPrediction, setLatestPrediction] = useState(null);
     const [showThemeForm, setShowThemeForm] = useState(false);
     const [walletBalance, setWalletBalance] = useState('0');
+    const [users, setUsers] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
 
     const cardClass = `p-4 rounded-lg shadow`;
     const buttonClass = `p-2 rounded`;
@@ -47,9 +56,70 @@ const Dashboard = () => {
         fetchLatestPrediction();
     }, []);
 
-    const handleForecastClick = () => {
-        navigate('/forecast');
+    useEffect(() => {
+        fetchUsers();
+    }, []);
+
+    const fetchUsers = async () => {
+        try {
+            const provider = new ethers.BrowserProvider(window.ethereum);
+            const contract = new ethers.Contract(
+                CONTRACT_ADDRESS,
+                UserManagementABI.abi,
+                provider
+            );
+
+            const userAddresses = await contract.getAllUsers();
+            const userPromises = userAddresses.map(async (address) => {
+                const userData = await contract.getUserDetails(address);
+                return {
+                    address,
+                    name: userData[0],
+                    flatNo: userData[1],
+                    phoneNumber: userData[2],
+                    email: userData[3]
+                };
+            });
+
+            const userList = await Promise.all(userPromises);
+            setUsers(userList);
+            setLoading(false);
+        } catch (error) {
+            console.error('Error fetching users:', error);
+            setError(error.message);
+            setLoading(false);
+        }
     };
+
+    // Listen for new user registrations
+    useEffect(() => {
+        const provider = new ethers.BrowserProvider(window.ethereum);
+        const contract = new ethers.Contract(
+            CONTRACT_ADDRESS,
+            UserManagementABI.abi,
+            provider
+        );
+
+        contract.on("UserRegistered", (userAddress, name, flatNo, timestamp) => {
+            console.log("New user registered:", { userAddress, name, flatNo });
+            fetchUsers(); // Refresh the user list
+        });
+
+        return () => {
+            contract.removeAllListeners();
+        };
+    }, []);
+
+    useEffect(() => {
+        const checkConnections = async () => {
+            const result = await verifyConnections();
+            if (!result.success) {
+                setError(result.error || 'Some services are not running. Please check the startup guide.');
+            }
+        };
+        
+        checkConnections();
+    }, []);
 
     return (
         <div
@@ -91,9 +161,22 @@ const Dashboard = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                 <div className={cardClass} style={{ backgroundColor: theme.usageCardBackground, color: theme.cardText }}>
                     <h2 className="text-lg font-semibold">Water Usage Tracking</h2>
-                    <p className="text-2xl">5</p>
-                    <p className={textClass}>+4.8%</p>
+                    <p className="text-2xl"> WATER</p>
+                    <p className={textClass}>Monthly Allocation: </p>
+                    <Link 
+                        to="/water-usage" 
+                        className="text-blue-500 hover:text-blue-600"
+                    >
+                        Record Usage
+                    </Link>
+                    <Link 
+                        to="/allocate-tokens" 
+                        className="text-blue-500 hover:text-blue-600"
+                    >
+                        Allocate Tokens
+                    </Link>
                 </div>
+                
                 <Link 
                     to="/forecast" 
                     className={`${cardClass} cursor-pointer transition-transform hover:scale-105`}
@@ -203,24 +286,42 @@ const Dashboard = () => {
                 </div>
                 <div className={cardClass} style={{ backgroundColor: theme.apartmentCardBackground, color: theme.cardText }}>
                     <h2 className="text-lg font-semibold">Apartment Details</h2>
-                    <ul>
-                        <li className="flex justify-between py-2">
-                            <span>Mr. John Doe</span>
-                            <span>Flat no: A101</span>
-                        </li>
-                        <li className="flex justify-between py-2">
-                            <span>Mr. Alice Johnson</span>
-                            <span>Flat no: A102</span>
-                        </li>
-                        <li className="flex justify-between py-2">
-                            <span>Mr. Robert Smith</span>
-                            <span>Flat no: A103</span>
-                        </li>
-                        <li className="flex justify-between py-2">
-                            <span>Mrs. Emily Davis</span>
-                            <span>Flat no: A201</span>
-                        </li>
-                    </ul>
+                    <div className="flex flex-col space-y-4">
+                        {error ? (
+                            <div className="text-red-500 py-2">Error: {error}</div>
+                        ) : (
+                            <>
+                                <ul>
+                                    {loading ? (
+                                        <li className="py-2">Loading...</li>
+                                    ) : users.length === 0 ? (
+                                        <li className="py-2">No registered users</li>
+                                    ) : (
+                                        users.map((user, index) => (
+                                            <li key={index} className="flex justify-between py-2">
+                                                <span>{user.name}</span>
+                                                <span>Flat no: {user.flatNo}</span>
+                                            </li>
+                                        ))
+                                    )}
+                                </ul>
+                                <div className="flex space-x-4">
+                                    <Link 
+                                        to="/register-user" 
+                                        className="bg-primary text-white px-4 py-2 rounded hover:bg-primary/80"
+                                    >
+                                        Register New User
+                                    </Link>
+                                    <Link 
+                                        to="/users" 
+                                        className="bg-secondary text-white px-4 py-2 rounded hover:bg-secondary/80"
+                                    >
+                                        View All Users
+                                    </Link>
+                                </div>
+                            </>
+                        )}
+                    </div>
                 </div>
             </div>
             <footer 

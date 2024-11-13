@@ -12,11 +12,13 @@ from utils.data_prep import prepare_prediction_data
 app = Flask(__name__)
 CORS(app)
 
-# Set up logging
-logging.basicConfig(level=logging.DEBUG)
+# Configure logging
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Constants
 MODELS_DIR = os.path.join(os.path.dirname(__file__), 'train', 'models')
+CSV_PATH = os.path.join(os.path.dirname(__file__), 'water_consumption_data.csv')
 
 @app.route('/')
 def home():
@@ -25,107 +27,68 @@ def home():
         'message': 'Water Usage Prediction API',
         'endpoints': {
             '/': 'This help message',
-            '/health': 'Health check endpoint',
-            '/api/predict': 'POST endpoint for predictions'
+            '/api/health': 'Health check endpoint',
+            '/api/predict': 'POST endpoint for predictions',
+            '/api/units': 'GET endpoint for available units'
         }
     })
-
-@app.route('/health')
-def health():
-    return jsonify({
-        'status': 'healthy',
-        'timestamp': datetime.now().isoformat(),
-        'models_dir': os.path.exists(MODELS_DIR),
-        'data_file': os.path.exists('water_consumption_data.csv')
-    })
-
-@app.errorhandler(404)
-def not_found(e):
-    return jsonify({
-        'status': 'error',
-        'message': 'Route not found',
-        'available_routes': {
-            '/': 'API information',
-            '/health': 'Health check',
-            '/api/predict': 'Make predictions (POST)'
-        }
-    }), 404
 
 @app.route('/api/predict', methods=['POST'])
 def predict():
     try:
         data = request.get_json()
         logger.info(f"Received prediction request: {data}")
+
+        floor = data.get('floor')
+        unit = data.get('unit')
+        days = data.get('days', 7)  # Default to 7 days if not specified
+
+        # Load the CSV data
+        df = pd.read_csv(CSV_PATH)
         
-        floor_no = data['floor']
-        unit_no = data['unit']
-        days = data.get('days', 7)
+        # Prepare input data
+        input_data = prepare_prediction_data(df, floor, unit)
         
-        # Load model and scaler
-        model_key = f"A{(floor_no-1):01d}{unit_no:02d}"
-        model_path = os.path.join(MODELS_DIR, f'lstm_model_{model_key}.keras')
-        scaler_path = os.path.join(MODELS_DIR, f'lstm_scaler_{model_key}.npy')
+        # Load model and make prediction
+        model = tf.keras.models.load_model(os.path.join(MODELS_DIR, f'lstm_model_A{(floor-1):01d}{unit:02d}.keras'))
         
-        if not os.path.exists(model_path) or not os.path.exists(scaler_path):
-            return jsonify({
-                'status': 'error',
-                'message': f'Model or scaler not found for Floor {floor_no} Unit {unit_no}'
-            }), 404
-        
-        # Load model and scaler
-        model = tf.keras.models.load_model(model_path)
-        scaler = np.load(scaler_path)
-        
-        # Get recent data
-        df = pd.read_csv('water_consumption_data.csv')
-        input_sequence = prepare_prediction_data(df, floor_no, unit_no)
+        # Reshape input data for LSTM (batch_size, timesteps, features)
+        input_data = input_data.reshape(1, 7, 3)
         
         # Make predictions
         predictions = []
-        current_sequence = input_sequence.copy()
+        current_sequence = input_data.copy()
         
         for _ in range(days):
-            # Scale features
-            scaled_sequence = scale_features(current_sequence, scaler)
-            
-            # Reshape for model input
-            X = scaled_sequence.reshape(1, 7, 3)
-            
-            # Predict
-            next_day_scaled = model.predict(X, verbose=0)
-            
-            # Unscale prediction and convert to Python float
-            next_day = float(unscale_predictions(next_day_scaled, scaler)[0])
-            predictions.append(next_day)
+            next_day = model.predict(current_sequence, verbose=0)
+            predictions.append(float(next_day[0, 0]))
             
             # Update sequence for next prediction
-            new_row = current_sequence[-1].copy()
-            new_row[0] = next_day  # Update water usage only
-            current_sequence = np.roll(current_sequence, -1, axis=0)
-            current_sequence[-1] = new_row
+            current_sequence[0, :-1] = current_sequence[0, 1:]  # Shift data
+            current_sequence[0, -1, 0] = next_day[0, 0]  # Add new prediction
         
-        # Format predictions
-        prediction_dates = [(datetime.now() + timedelta(days=i+1)).strftime('%Y-%m-%d') 
-                          for i in range(len(predictions))]
+        # Format predictions with dates
+        dates = [(datetime.now() + timedelta(days=i+1)).strftime('%Y-%m-%d') 
+                for i in range(len(predictions))]
         
-        formatted_predictions = [
-            {"date": date, "value": round(float(value), 2)} 
-            for date, value in zip(prediction_dates, predictions)
+        prediction_list = [
+            {"date": date, "value": round(value, 2)} 
+            for date, value in zip(dates, predictions)
         ]
         
         return jsonify({
             'status': 'success',
-            'predictions': formatted_predictions,
+            'predictions': prediction_list,
             'unit_info': {
-                'floor': floor_no,
-                'unit': unit_no,
-                'residents': int(current_sequence[-1, 1]),
-                'unit_size': int(current_sequence[-1, 2])
+                'floor': floor,
+                'unit': unit,
+                'residents': int(input_data[0, -1, 1]),
+                'unit_size': int(input_data[0, -1, 2])
             }
         })
-        
+
     except Exception as e:
-        logger.error(f"Error in predict endpoint: {str(e)}", exc_info=True)
+        logger.error(f"Prediction error: {str(e)}", exc_info=True)
         return jsonify({
             'status': 'error',
             'message': str(e)
@@ -134,8 +97,8 @@ def predict():
 @app.route('/api/units', methods=['GET'])
 def get_available_units():
     try:
-        # Read the CSV file
-        df = pd.read_csv('water_consumption_data.csv')
+        # Read the CSV file using the absolute path
+        df = pd.read_csv(CSV_PATH)
         
         # Get unique combinations of floor and unit
         units = []
@@ -159,6 +122,28 @@ def get_available_units():
             'message': str(e)
         }), 500
 
+@app.route('/api/health')
+def health():
+    return jsonify({
+        'status': 'healthy',
+        'timestamp': datetime.now().isoformat(),
+        'models_dir': os.path.exists(MODELS_DIR),
+        'data_file': os.path.exists(CSV_PATH)
+    })
+
+@app.errorhandler(404)
+def not_found(e):
+    return jsonify({
+        'status': 'error',
+        'message': 'Route not found',
+        'available_routes': {
+            '/': 'API information',
+            '/api/health': 'Health check',
+            '/api/predict': 'Make predictions (POST)',
+            '/api/units': 'Get available units (GET)'
+        }
+    }), 404
+
 if __name__ == '__main__':
     logger.info("Starting server...")
     logger.info(f"Models directory: {MODELS_DIR}")
@@ -170,9 +155,9 @@ if __name__ == '__main__':
     else:
         logger.error(f"Models directory not found: {MODELS_DIR}")
     
-    if os.path.exists('water_consumption_data.csv'):
-        logger.info("Found water_consumption_data.csv")
+    if os.path.exists(CSV_PATH):
+        logger.info(f"Found water consumption data at: {CSV_PATH}")
     else:
-        logger.error("water_consumption_data.csv not found!")
+        logger.error(f"Water consumption data not found at: {CSV_PATH}")
     
     app.run(host='0.0.0.0', port=5000, debug=True)

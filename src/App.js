@@ -1,36 +1,33 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import Dashboard from './Dashboard';
-import Analytics from './pages/Analytics';
 import { ThemeProvider } from './contexts/ThemeContext';
-import detectEthereumProvider from '@metamask/detect-provider';
-import { useEffect, useState } from 'react';
+import Dashboard from './Dashboard';
+import UserList from './components/UserList';
+import UserRegistrationForm from './components/UserRegistrationForm';
 import Forecast from './pages/Forecast';
+import Analytics from './pages/Analytics';
+import ErrorBoundary from './components/ErrorBoundary';
+import WaterTokenAllocation from './components/WaterTokenAllocation'; // Import the new component
 
 function App() {
-    const [hasProvider, setHasProvider] = useState(false);
-
-    useEffect(() => {
-        const getProvider = async () => {
-            const provider = await detectEthereumProvider();
-            setHasProvider(!!provider);
-        };
-        getProvider();
-    }, []);
-
-    useEffect(() => {
-        if (!hasProvider) {
-            console.log('Please install MetaMask!');
-        }
-    }, [hasProvider]);
-
     return (
         <ThemeProvider>
             <Router>
                 <Routes>
                     <Route path="/" element={<Dashboard />} />
-                    <Route path="/analytics" element={<Analytics />} />
+                    <Route path="/users" element={<UserList />} />
+                    <Route 
+                        path="/register-user" 
+                        element={
+                            <ErrorBoundary>
+                                <UserRegistrationForm />
+                            </ErrorBoundary>
+                        } 
+                    />
+                    <Route path="/water-usage" element={<WaterUsageForm />} />
+                    <Route path="/allocate-tokens" element={<WaterTokenAllocation />} />
                     <Route path="/forecast" element={<Forecast />} />
+                    <Route path="/analytics" element={<Analytics />} />
                 </Routes>
             </Router>
         </ThemeProvider>

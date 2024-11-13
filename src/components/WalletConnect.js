@@ -1,76 +1,108 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { BrowserProvider, formatEther } from 'ethers';
-import detectEthereumProvider from '@metamask/detect-provider';
+import React, { useState, useEffect } from 'react';
+import { ethers } from 'ethers';
 
 const WalletConnect = ({ onBalanceChange }) => {
     const [account, setAccount] = useState('');
-    const [balance, setBalance] = useState('');
+    const [connectionStatus, setConnectionStatus] = useState('Disconnected');
 
     const connectWallet = async () => {
         try {
-            if (window.ethereum) {
-                // Request account access
-                const accounts = await window.ethereum.request({
-                    method: 'eth_requestAccounts'
-                });
-                
-                setAccount(accounts[0]);
-                
-                // Get provider
-                const provider = new BrowserProvider(window.ethereum);
-                
-                // Get balance
-                const balance = await provider.getBalance(accounts[0]);
-                const etherBalance = formatEther(balance);
-                setBalance(etherBalance);
-                onBalanceChange(etherBalance);
-            } else {
+            if (!window.ethereum) {
                 alert('Please install MetaMask!');
+                return;
             }
+
+            setConnectionStatus('Connecting...');
+
+            // Request account access
+            const accounts = await window.ethereum.request({ 
+                method: 'eth_requestAccounts' 
+            });
+
+            // Get the first account
+            const account = accounts[0];
+            setAccount(account);
+            setConnectionStatus('Connected');
+
+            // Get account balance
+            const provider = new ethers.BrowserProvider(window.ethereum);
+            const balance = await provider.getBalance(account);
+            const formattedBalance = ethers.formatEther(balance);
+            onBalanceChange(formattedBalance);
+
+            // Listen for account changes
+            window.ethereum.on('accountsChanged', handleAccountsChanged);
+            window.ethereum.on('chainChanged', handleChainChanged);
+
         } catch (error) {
-            console.error('Error connecting wallet:', error);
+            console.error('Connection error:', error);
+            setConnectionStatus('Error connecting');
         }
     };
 
-    const updateBalance = useCallback(async (account) => {
-        if (account) {
-            const provider = new BrowserProvider(window.ethereum);
-            const balance = await provider.getBalance(account);
-            setBalance(formatEther(balance));
+    const handleAccountsChanged = async (accounts) => {
+        if (accounts.length === 0) {
+            setAccount('');
+            setConnectionStatus('Disconnected');
+            onBalanceChange('0');
+        } else {
+            const newAccount = accounts[0];
+            setAccount(newAccount);
+            setConnectionStatus('Connected');
+            
+            // Update balance for new account
+            const provider = new ethers.BrowserProvider(window.ethereum);
+            const balance = await provider.getBalance(newAccount);
+            onBalanceChange(ethers.formatEther(balance));
         }
+    };
+
+    const handleChainChanged = () => {
+        // Reload the page when chain changes
+        window.location.reload();
+    };
+
+    // Check initial connection status
+    useEffect(() => {
+        const checkConnection = async () => {
+            if (window.ethereum) {
+                try {
+                    const accounts = await window.ethereum.request({
+                        method: 'eth_accounts'
+                    });
+                    if (accounts.length > 0) {
+                        await handleAccountsChanged(accounts);
+                    }
+                } catch (error) {
+                    console.error('Error checking connection:', error);
+                }
+            }
+        };
+
+        checkConnection();
+
+        // Cleanup listeners
+        return () => {
+            if (window.ethereum) {
+                window.ethereum.removeListener('accountsChanged', handleAccountsChanged);
+                window.ethereum.removeListener('chainChanged', handleChainChanged);
+            }
+        };
     }, []);
 
-    useEffect(() => {
-        if (account) {
-            updateBalance(account);
-        }
-    }, [account, updateBalance]);
-
-    const disconnectWallet = () => {
-        setAccount('');
-        setBalance('');
-        onBalanceChange('');
-    };
-
     return (
-        <div>
-            {!account ? (
-                <button 
-                    onClick={connectWallet}
-                    className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
-                >
-                    Connect MetaMask
-                </button>
-            ) : (
-                <div className="text-sm space-y-2">
-                    <p>Connected: {account.slice(0, 6)}...{account.slice(-4)}</p>
-                    <button 
-                        onClick={disconnectWallet}
-                        className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600"
-                    >
-                        Disconnect
-                    </button>
-                </div>
+        <div className="flex items-center space-x-4">
+            <button
+                onClick={connectWallet}
+                className="px-4 py-2 rounded bg-blue-500 text-white hover:bg-blue-600 transition-colors"
+                disabled={connectionStatus === 'Connected'}
+            >
+                {connectionStatus === 'Connected' ? 'Connected' : 'Connect Wallet'}
+            </button>
+            {account && (
+                <span className="text-sm">
+                    {`${account.slice(0, 6)}...${account.slice(-4)}`}
+                </span>
             )}
         </div>
     );
