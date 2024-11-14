@@ -8,6 +8,8 @@ import { ethers } from 'ethers';
 import UserManagementABI from './abis/UserManagement.json';
 import { verifyConnections } from './utils/startupCheck';
 import WaterTokenAllocation from './components/WaterTokenAllocation'; // Import the new component
+import axios from 'axios'; // Make sure to install axios
+import UserRegistrationForm from './components/UserRegistrationForm'; // Import the registration form
 
 const CONTRACT_ADDRESS = '0x14f713b4cb00eFD22746b7964b41606f638E5919'; // change if deployed again
 
@@ -20,6 +22,7 @@ const Dashboard = () => {
     const [users, setUsers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [showRegistrationForm, setShowRegistrationForm] = useState(false);
 
     const cardClass = `p-4 rounded-lg shadow`;
     const buttonClass = `p-2 rounded`;
@@ -62,31 +65,16 @@ const Dashboard = () => {
 
     const fetchUsers = async () => {
         try {
-            const provider = new ethers.BrowserProvider(window.ethereum);
-            const contract = new ethers.Contract(
-                CONTRACT_ADDRESS,
-                UserManagementABI.abi,
-                provider
-            );
-
-            const userAddresses = await contract.getAllUsers();
-            const userPromises = userAddresses.map(async (address) => {
-                const userData = await contract.getUserDetails(address);
-                return {
-                    address,
-                    name: userData[0],
-                    flatNo: userData[1],
-                    phoneNumber: userData[2],
-                    email: userData[3]
-                };
-            });
-
-            const userList = await Promise.all(userPromises);
-            setUsers(userList);
-            setLoading(false);
+            const response = await axios.get('http://localhost:5000/api/users');
+            if (response.data.success) {
+                setUsers(response.data.users);
+            } else {
+                throw new Error('Failed to fetch users');
+            }
         } catch (error) {
             console.error('Error fetching users:', error);
-            setError(error.message);
+            setError('Failed to fetch users');
+        } finally {
             setLoading(false);
         }
     };
@@ -120,6 +108,12 @@ const Dashboard = () => {
         
         checkConnections();
     }, []);
+
+    const toggleRegistrationForm = () => {
+        setShowRegistrationForm(!showRegistrationForm);
+    };
+
+    const defaultImage = "/owner_icon.webp"; // Path to the image in the public directory
 
     return (
         <div
@@ -270,17 +264,21 @@ const Dashboard = () => {
                 <div className={cardClass} style={{ backgroundColor: theme.ownerCardBackground, color: theme.cardText }}>
                     <h2 className="text-lg font-semibold">Building Owner Details</h2>
                     <div className="flex items-center mb-4">
-                        <img src="https://openui.fly.dev/openui/24x24.svg?text=👨‍⚕️" alt="Doctor" className="w-16 h-16 rounded-full mr-4" />
+                        <a href="https://www.linkedin.com/in/hassan-kaif-a03028257/" target="_blank" rel="noopener noreferrer">
+                            <img src={defaultImage} alt="Mr. Mohammed Mohsin A" className="w-16 h-16 rounded-full mr-4" />
+                        </a>
                         <div>
-                            <p className="font-bold"> Mr.Mohammed Mohsin A</p>
-                            <p className={textClass}>Entrepreneur</p>
+                            <p className="font-bold">Mr. Mohammed Mohsin A</p>
+                            <p className="text-gray-600">Entrepreneur</p>
                         </div>
                     </div>
                     <div className="flex items-center">
-                        <img src="https://openui.fly.dev/openui/24x24.svg?text=👩‍⚕️" alt="Doctor" className="w-16 h-16 rounded-full mr-4" />
+                        <a href="https://www.linkedin.com/in/manikandan-t-5a2405293?utm_source=share&utm_campaign=share_via&utm_content=profile&utm_medium=android_app" target="_blank" rel="noopener noreferrer">
+                            <img src={defaultImage} alt="Mr. Manikandan" className="w-16 h-16 rounded-full mr-4" />
+                        </a>
                         <div>
                             <p className="font-bold">Mr. Manikandan</p>
-                            <p className={textClass}>building incharge</p>
+                            <p className="text-gray-600">Building Incharge</p>
                         </div>
                     </div>
                 </div>
@@ -300,23 +298,21 @@ const Dashboard = () => {
                                         users.map((user, index) => (
                                             <li key={index} className="flex justify-between py-2">
                                                 <span>{user.name}</span>
-                                                <span>Flat no: {user.flatNo}</span>
+                                                <span>Flat no: {user.flat_no}</span>
                                             </li>
                                         ))
                                     )}
                                 </ul>
                                 <div className="flex space-x-4">
-                                    <Link 
-                                        to="/register-user" 
+                                    <button onClick={toggleRegistrationForm}
                                         className="bg-primary text-white px-4 py-2 rounded hover:bg-primary/80"
-                                    >
-                                        Register New User
-                                    </Link>
-                                    <Link 
-                                        to="/users" 
+                                        >
+                                            Register New User
+                                    </button>
+                                    <Link to="/users"
                                         className="bg-secondary text-white px-4 py-2 rounded hover:bg-secondary/80"
-                                    >
-                                        View All Users
+                                        >
+                                            View All Users
                                     </Link>
                                 </div>
                             </>
@@ -352,6 +348,8 @@ const Dashboard = () => {
                     Smart Water Management System Admin Dashboard 2023 All Rights Reserved
                     </p>
             </footer>
+
+            {showRegistrationForm && <UserRegistrationForm />}
         </div>
     );
 };

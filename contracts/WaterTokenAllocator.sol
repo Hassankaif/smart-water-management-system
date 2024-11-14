@@ -5,7 +5,7 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 contract WaterToken is ERC20, Ownable {
-    constructor() ERC20("Water Token", "WATER") {
+    constructor() ERC20("Water Token", "WATER") Ownable(msg.sender) {
         _mint(msg.sender, 1000000 * 10 ** decimals()); // Initial supply
     }
 }
@@ -17,7 +17,7 @@ contract WaterTokenAllocator is Ownable {
 
     event TokensAllocated(address indexed user, uint256 amount);
 
-    constructor(address _waterTokenAddress) {
+    constructor(address _waterTokenAddress) Ownable(msg.sender) {
         waterToken = WaterToken(_waterTokenAddress);
     }
 
@@ -30,7 +30,10 @@ contract WaterTokenAllocator is Ownable {
             monthlyAllocations[users[i]] = allocation;
             lastAllocationTimestamp[users[i]] = block.timestamp;
 
+            // Check if allocator has enough tokens and transfer the allocation
+            require(waterToken.balanceOf(address(this)) >= allocation, "Not enough tokens in the allocator contract");
             waterToken.transfer(users[i], allocation);
+
             emit TokensAllocated(users[i], allocation);
         }
     }
@@ -38,5 +41,10 @@ contract WaterTokenAllocator is Ownable {
     // Function to get user's allocation
     function getUserAllocation(address user) external view returns (uint256) {
         return monthlyAllocations[user];
+    }
+
+    // Function to fund the allocator contract with tokens
+    function fundAllocator(uint256 amount) external onlyOwner {
+        require(waterToken.transferFrom(msg.sender, address(this), amount), "Transfer failed");
     }
 }

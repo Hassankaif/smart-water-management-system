@@ -8,9 +8,17 @@
     "@testing-library/jest-dom": "^5.17.0",
     "@testing-library/react": "^13.4.0",
     "@testing-library/user-event": "^13.5.0",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
     "axios": "^1.7.7",
+    "bcrypt": "^5.1.1",
     "chart.js": "^4.4.6",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
     "ethers": "^6.13.4",
+    "express": "^4.21.1",
+    "mysql": "^2.18.1",
+    "mysql2": "^3.11.4",
     "plotly.js-dist": "^2.35.2",
     "react": "^18.3.1",
     "react-chartjs-2": "^5.2.0",
@@ -18,6 +26,7 @@
     "react-router-dom": "^6.28.0",
     "react-scripts": "5.0.1",
     "recharts": "^2.13.3",
+    "solc": "^0.8.20",
     "web-vitals": "^2.1.4",
     "web3": "^4.15.0"
   },
@@ -49,6 +58,7 @@
     "@babel/plugin-proposal-private-property-in-object": "^7.21.11",
     "autoprefixer": "^10.4.20",
     "postcss": "^8.4.47",
-    "tailwindcss": "^3.4.14"
+    "tailwindcss": "^3.4.14",
+    "typescript": "^4.8.4"
   }
 }

@@ -8,6 +8,7 @@ import logging
 from datetime import datetime, timedelta
 from utils.scaler import scale_features, unscale_predictions
 from utils.data_prep import prepare_prediction_data
+import mysql.connector  # Ensure you have mysql-connector-python installed
 
 app = Flask(__name__)
 CORS(app)
@@ -19,6 +20,15 @@ logger = logging.getLogger(__name__)
 # Constants
 MODELS_DIR = os.path.join(os.path.dirname(__file__), 'train', 'models')
 CSV_PATH = os.path.join(os.path.dirname(__file__), 'water_consumption_data.csv')
+
+# Database connection
+def get_db_connection():
+    return mysql.connector.connect(
+        host='127.0.0.1',
+        user='root',  # Replace with your MySQL username
+        password='kaif&*9363',  # Replace with your MySQL password
+        database='smart_water_management'
+    )
 
 @app.route('/')
 def home():
@@ -143,6 +153,42 @@ def not_found(e):
             '/api/units': 'Get available units (GET)'
         }
     }), 404
+
+@app.route('/api/register', methods=['POST'])
+def register_user():
+    data = request.get_json()
+    name = data.get('name')
+    flat_no = data.get('flatNo')
+    phone_number = data.get('phoneNumber')
+    email = data.get('email')
+    password = data.get('password')  # Ensure to hash this in production
+
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            'INSERT INTO users (name, flat_no, phone_number, email, password_hash) VALUES (%s, %s, %s, %s, %s)',
+            (name, flat_no, phone_number, email, password)  # Hash the password before storing
+        )
+        conn.commit()
+        cursor.close()
+        conn.close()
+        return jsonify({'success': True}), 201
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/users', methods=['GET'])
+def get_all_users():
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute('SELECT id, name, flat_no, phone_number, email FROM users')
+        users = cursor.fetchall()
+        cursor.close()
+        conn.close()
+        return jsonify({'success': True, 'users': users})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 if __name__ == '__main__':
     logger.info("Starting server...")
