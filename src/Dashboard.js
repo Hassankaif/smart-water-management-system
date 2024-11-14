@@ -5,8 +5,6 @@ import ThemeSwitcher from './components/ThemeSwitcher';
 import WalletConnect from './components/WalletConnect';
 import { forecastService } from './services/forecastService';
 import { ethers } from 'ethers';
-import UserManagementABI from './abis/UserManagement.json';
-import { verifyConnections } from './utils/startupCheck';
 import WaterTokenAllocation from './components/WaterTokenAllocation'; // Import the new component
 import axios from 'axios'; // Make sure to install axios
 import UserRegistrationForm from './components/UserRegistrationForm'; // Import the registration form
@@ -79,38 +77,10 @@ const Dashboard = () => {
         }
     };
 
-    // Listen for new user registrations
-    useEffect(() => {
-        const provider = new ethers.BrowserProvider(window.ethereum);
-        const contract = new ethers.Contract(
-            CONTRACT_ADDRESS,
-            UserManagementABI.abi,
-            provider
-        );
 
-        contract.on("UserRegistered", (userAddress, name, flatNo, timestamp) => {
-            console.log("New user registered:", { userAddress, name, flatNo });
-            fetchUsers(); // Refresh the user list
-        });
-
-        return () => {
-            contract.removeAllListeners();
-        };
-    }, []);
-
-    useEffect(() => {
-        const checkConnections = async () => {
-            const result = await verifyConnections();
-            if (!result.success) {
-                setError(result.error || 'Some services are not running. Please check the startup guide.');
-            }
-        };
-        
-        checkConnections();
-    }, []);
 
     const toggleRegistrationForm = () => {
-        setShowRegistrationForm(!showRegistrationForm);
+        navigate('/register-user');
     };
 
     const defaultImage = "/owner_icon.webp"; // Path to the image in the public directory
