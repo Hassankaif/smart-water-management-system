@@ -24,7 +24,7 @@ const WaterTokenAllocation = () => {
         setError('');
 
         try {
-            const provider = new ethers.BrowserProvider(window.ethereum);
+            const provider = new ethers.providers.Web3Provider(window.ethereum); // Use Web3Provider
             const signer = await provider.getSigner();
             const contract = new ethers.Contract(WATER_TOKEN_ALLOCATOR_ADDRESS, WaterTokenAllocatorABI, signer);
 

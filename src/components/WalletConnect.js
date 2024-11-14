@@ -25,9 +25,9 @@ const WalletConnect = ({ onBalanceChange }) => {
             setConnectionStatus('Connected');
 
             // Get account balance
-            const provider = new ethers.BrowserProvider(window.ethereum);
+            const provider = new ethers.providers.Web3Provider(window.ethereum);
             const balance = await provider.getBalance(account);
-            const formattedBalance = ethers.formatEther(balance);
+            const formattedBalance = ethers.utils.formatEther(balance);
             onBalanceChange(formattedBalance);
 
             // Listen for account changes
@@ -51,9 +51,9 @@ const WalletConnect = ({ onBalanceChange }) => {
             setConnectionStatus('Connected');
             
             // Update balance for new account
-            const provider = new ethers.BrowserProvider(window.ethereum);
+            const provider = new ethers.providers.Web3Provider(window.ethereum);
             const balance = await provider.getBalance(newAccount);
-            onBalanceChange(ethers.formatEther(balance));
+            onBalanceChange(ethers.utils.formatEther(balance));
         }
     };
 

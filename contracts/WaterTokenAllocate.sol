@@ -5,40 +5,46 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 contract WaterToken is ERC20, Ownable {
-    struct FlatInfo {
-        uint256 residents;
-        uint256 historicalWaterConsumption;
-        uint256 allocatedTokens;
-        uint256 actualTokensUsed;
-        uint256 penalty;
+    constructor(address initialOwner) 
+        ERC20("WaterToken", "WTR") 
+        Ownable(initialOwner)  // Pass initialOwner to Ownable constructor
+    {
+        // Initial token minting if needed
+        _mint(msg.sender, 1000000 * 10 ** decimals());
     }
+}
 
-    mapping(address => FlatInfo) public flats;
-
-    constructor(string memory name, string memory symbol, uint256 initialSupply) ERC20(name, symbol) {
-        _mint(address(this), initialSupply);
+contract WaterTokenAllocator is Ownable {
+    WaterToken public waterToken;
+    
+    // Mapping to track allocations
+    mapping(address => uint256) public allocations;
+    
+    constructor(address initialOwner, address _waterTokenAddress) 
+        Ownable(initialOwner)  // Pass initialOwner to Ownable constructor
+    {
+        waterToken = WaterToken(_waterTokenAddress);
     }
-
-    function allocateTokens(address flatAddress, uint256 residents, uint256 historicalWaterConsumption) public onlyOwner {
-        uint256 allocatedTokens = residents * historicalWaterConsumption;
-        flats[flatAddress] = FlatInfo(residents, historicalWaterConsumption, allocatedTokens, 0, 0);
-        _transfer(address(this), flatAddress, allocatedTokens);
+    
+    // Function to allocate tokens
+    function allocateTokens(address recipient, uint256 amount) external onlyOwner {
+        require(recipient != address(0), "Invalid recipient address");
+        require(amount > 0, "Amount must be greater than 0");
+        
+        // Update allocation
+        allocations[recipient] += amount;
+        
+        // Transfer tokens
+        require(waterToken.transfer(recipient, amount), "Token transfer failed");
+        
+        emit TokensAllocated(recipient, amount);
     }
-
-    function recordActualTokensUsed(address flatAddress, uint256 tokensUsed) public onlyOwner {
-        FlatInfo storage flat = flats[flatAddress];
-        flat.actualTokensUsed = tokensUsed;
-
-        if (tokensUsed > flat.allocatedTokens) {
-            uint256 penalty = (tokensUsed - flat.allocatedTokens) * 2;
-            flat.penalty = penalty;
-            _burn(flatAddress, penalty);
-        }
+    
+    // Function to get allocation for an address
+    function getAllocation(address account) external view returns (uint256) {
+        return allocations[account];
     }
-
-    function exchangeTokens(uint256 amount) public {
-        require(amount <= balanceOf(msg.sender), "Insufficient tokens");
-        _burn(msg.sender, amount);
-        _transfer(address(this), msg.sender, amount);
-    }
+    
+    // Event to emit when tokens are allocated
+    event TokensAllocated(address indexed recipient, uint256 amount);
 }

@@ -8,6 +8,7 @@ import { ethers } from 'ethers';
 import WaterTokenAllocation from './components/WaterTokenAllocation'; // Import the new component
 import axios from 'axios'; // Make sure to install axios
 import UserRegistrationForm from './components/UserRegistrationForm'; // Import the registration form
+import WaterUsageCard from './components/WaterUsageCard'; // Import the new component
 
 const CONTRACT_ADDRESS = '0x14f713b4cb00eFD22746b7964b41606f638E5919'; // change if deployed again
 
@@ -123,23 +124,7 @@ const Dashboard = () => {
             )}
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                <div className={cardClass} style={{ backgroundColor: theme.usageCardBackground, color: theme.cardText }}>
-                    <h2 className="text-lg font-semibold">Water Usage Tracking</h2>
-                    <p className="text-2xl"> WATER</p>
-                    <p className={textClass}>Monthly Allocation: </p>
-                    <Link 
-                        to="/water-usage" 
-                        className="text-blue-500 hover:text-blue-600"
-                    >
-                        Record Usage
-                    </Link>
-                    <Link 
-                        to="/allocate-tokens" 
-                        className="text-blue-500 hover:text-blue-600"
-                    >
-                        Allocate Tokens
-                    </Link>
-                </div>
+                <WaterUsageCard walletConnected={!!window.ethereum?.selectedAddress} />
                 
                 <Link 
                     to="/forecast" 
